@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0d0f12">
+<title>LB Music Admin</title>
+<style>
+:root{--bg:#0d0f12;--card:rgba(255,255,255,.06);--ac:#1de9c6;--mut:#8b929c}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:#fff;font-family:system-ui,Arial,sans-serif;padding:18px 16px 60px;max-width:640px;margin:auto}
+h1{font-size:22px}h2{font-size:16px;margin-bottom:6px}.mut{color:var(--mut);font-size:13px;line-height:1.5}
+button{border:0;background:none;color:inherit;font:inherit;cursor:pointer}
+input,select{background:#1b1f27;border:1px solid #2a303b;color:#fff;border-radius:12px;padding:13px;width:100%;font-size:15px;font-family:inherit;margin:5px 0;outline:none}
+.tabs{display:flex;gap:8px;margin:14px 0}.tab{flex:1;padding:11px;border-radius:12px;background:rgba(255,255,255,.07);font-weight:700;font-size:14px;color:#aaa}.tab.on{background:#eee;color:#111}
+.card{background:var(--card);border-radius:16px;padding:14px;margin:12px 0}
+.btn{background:rgba(255,255,255,.1);border-radius:12px;padding:12px 16px;font-weight:700;font-size:14px;margin:6px 6px 0 0}
+.btn.pr{background:var(--ac);color:#04201c}.btn.gold{background:#e0b64a;color:#2a1700}.btn.red{color:#ff7b7b}
+.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}
+.plan{padding:12px 6px;border-radius:12px;background:rgba(255,255,255,.07);font-size:13px;font-weight:700;text-align:center;border:2px solid transparent}.plan.on{border-color:var(--ac)}
+.plan small{display:block;font-weight:400;color:var(--mut);margin-top:2px}
+.out{font-family:monospace;font-size:22px;font-weight:800;letter-spacing:1px;text-align:center;padding:16px;background:#000;border-radius:12px;margin:10px 0;word-break:break-all;color:var(--ac)}
+.msg{border-left:4px solid var(--ac);background:var(--card);border-radius:10px;padding:11px 12px;font-size:13px;line-height:1.5;margin:10px 0}.msg.bad{border-color:#ff6b6b}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #ffffff12;font-size:13px}.row b{display:block}
+.tag{display:inline-block;font-size:11px;background:var(--ac);color:#04201c;border-radius:6px;padding:2px 7px;font-weight:700}
+.hide{display:none}
+</style>
+</head>
+<body>
+<h1>LB Music · Admin</h1>
+<p class="mut">Only you should use this page. Do not share the link.</p>
+<div class="tabs"><button class="tab on" data-t="acct">👑 Activate an account</button><button class="tab" data-t="code">🔑 Make a code</button></div>
+
+<!-- ============ TAB 1: activate an account (Firebase) ============ -->
+<section id="t-acct">
+ <div id="aMsg"></div>
+ <div id="aOut" class="card"><button class="btn pr" id="gBtn" style="width:100%;padding:14px">🔐 Sign in with Google</button></div>
+ <div id="aAdmin" class="hide">
+  <div class="card"><h2>1 · Find the customer</h2><p class="mut">Type the email they used in LB Music, or paste their Account ID.</p>
+   <input id="fq" placeholder="email@example.com or Account ID" autocapitalize="none" autocomplete="off"><button class="btn pr" id="fGo">🔎 Find</button></div>
+  <div id="fRes"></div>
+  <div id="aPick" class="hide">
+   <div class="card"><h2>2 · Choose the plan</h2><div class="plans" id="aPlans"></div>
+    <label class="mut" style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="aAdd" checked style="width:auto;margin:0"> Add to their remaining time if they are already Pro</label>
+    <input id="aWa" placeholder="Their WhatsApp number (optional)" inputmode="tel">
+    <button class="btn gold" id="aGo">👑 Activate Pro</button><button class="btn red" id="aRm">Remove Pro</button></div>
+  </div>
+  <div class="card"><h2>Pro customers</h2><p class="mut">Everyone who currently has a Pro record.</p><div id="pList"></div><button class="btn" id="pRef">🔄 Refresh list</button></div>
+  <button class="btn" id="aOutBtn">Log out</button>
+ </div>
+</section>
+
+<!-- ============ TAB 2: code without an account (works offline) ============ -->
+<section id="t-code" class="hide">
+ <div class="card"><h2>Make a Pro code</h2>
+  <p class="mut">For buyers who do not have an account. They type the code into LB Music → Go Pro. The code only works for the Transaction ID they sent you.</p>
+  <input id="cSecret" type="password" placeholder="Secret key (same as SECRET in lb-extra.js)" autocomplete="off">
+  <div class="plans" id="cPlans"></div>
+  <input id="cTid" placeholder="Transaction ID they sent" autocapitalize="characters" autocomplete="off">
+  <input id="cWa" placeholder="Their WhatsApp number (optional)" inputmode="tel">
+  <button class="btn pr" id="cGo">⚙️ Make code</button>
+  <div id="cOut" class="hide"><div class="out" id="cCode"></div><button class="btn" id="cCopy">📋 Copy</button><button class="btn pr" id="cSend">💬 Send on WhatsApp</button></div>
+ </div>
+ <p class="mut">⚠️ Codes made this way are checked inside the app, so a clever person can copy the secret from the app's code and make their own. Accounts (the other tab) are safer, because Firebase decides who is Pro.</p>
+</section>
+
+<script>
+/* ---------------- shared ---------------- */
+const $=s=>document.querySelector(s);
+const PLANS=[{id:'LB30',n:'1 month',p:'GH₵ 15',days:30},{id:'LB365',n:'1 year',p:'GH₵ 150',days:365},{id:'LBLIFE',n:'Lifetime',p:'GH₵ 300',days:0}];
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const waNum=n=>{n=String(n||'').replace(/\D/g,'');if(n.startsWith('0'))n='233'+n.slice(1);return n};
+const waLink=(n,t)=>'https://wa.me/'+(waNum(n)?waNum(n):'')+'?text='+encodeURIComponent(t);
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===b));$('#t-acct').classList.toggle('hide',b.dataset.t!=='acct');$('#t-code').classList.toggle('hide',b.dataset.t!=='code')});
+function plans(box,cur,fn){box.innerHTML='';PLANS.forEach(p=>{const d=document.createElement('button');d.className='plan'+(cur()===p.id?' on':'');d.innerHTML=esc(p.n)+'<small>'+esc(p.p)+'</small>';d.onclick=()=>{fn(p.id);plans(box,cur,fn)};box.append(d)})}
+
+/* ---------------- TAB 2: code maker (same maths as lb-extra.js) ---------------- */
+const h53=s=>{let a=0xdeadbeef,b=0x41c6ce57;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);a=Math.imul(a^c,2654435761);b=Math.imul(b^c,1597334677)}a=Math.imul(a^(a>>>16),2246822507)^Math.imul(b^(b>>>13),3266489909);b=Math.imul(b^(b>>>16),2246822507)^Math.imul(a^(a>>>13),3266489909);return 4294967296*(2097151&b)+(a>>>0)};
+const sig=(tid,pid,secret)=>h53(tid+'|'+pid+'|'+secret).toString(36).toUpperCase().padStart(10,'0').slice(0,10);
+const codeFor=(tid,pid,secret)=>{const s=sig(tid,pid,secret);return pid+'-'+s.slice(0,5)+'-'+s.slice(5)};
+window.__codeFor=codeFor;
+let cPlan='LB30';
+try{$('#cSecret').value=localStorage.getItem('adm_secret')||''}catch(e){}
+plans($('#cPlans'),()=>cPlan,v=>cPlan=v);
+$('#cGo').onclick=()=>{const secret=$('#cSecret').value.trim(),tid=$('#cTid').value.toUpperCase().replace(/\s/g,'');
+ if(!secret||tid.length<6)return alert('Type the secret key and the full Transaction ID.');
+ try{localStorage.setItem('adm_secret',secret)}catch(e){}
+ const c=codeFor(tid,cPlan,secret);$('#cCode').textContent=c;$('#cOut').classList.remove('hide')};
+$('#cCopy').onclick=()=>{const c=$('#cCode').textContent;try{navigator.clipboard.writeText(c);$('#cCopy').textContent='✅ Copied'}catch(e){alert(c)}};
+$('#cSend').onclick=()=>{const pl=PLANS.find(p=>p.id===cPlan);window.open(waLink($('#cWa').value,'Thank you! 🎉 Your LB Music Pro ('+pl.n+') code is:\n\n'+$('#cCode').textContent+'\n\nOpen LB Music → Go Pro → type the code → Activate.'),'_blank')};
+
+/* ---------------- TAB 1: Firebase admin ---------------- */
+const CFG={apiKey:"AIzaSyCE_NSdi4cdzONze5d_6hxq2Xiu_q_7E_Y",authDomain:"music-a1628.firebaseapp.com",projectId:"music-a1628",storageBucket:"music-a1628.firebasestorage.app",messagingSenderId:"600445931748",appId:"1:600445931748:web:14a53a514316f76cbd1cf1"};
+const V='https://www.gstatic.com/firebasejs/10.12.2/';
+let F=null,auth,db,me=null,found=null,aPlan='LB30';
+const say=(t,bad)=>{$('#aMsg').innerHTML=t?'<div class="msg'+(bad?' bad':'')+'">'+t+'</div>':''};
+async function load(){if(F)return F;
+ try{const [a,u,s]=await Promise.all([import(V+'firebase-app.js'),import(V+'firebase-auth.js'),import(V+'firebase-firestore.js')]);
+  const app=a.initializeApp(CFG);auth=u.getAuth(app);db=s.getFirestore(app);F={u,s};
+  u.onAuthStateChanged(auth,onUser);return F}
+ catch(e){say('Could not reach Firebase. Check the internet, then reload.',1);throw e}}
+$('#gBtn').onclick=async()=>{try{const {u}=await load();say('');await u.signInWithPopup(auth,new u.GoogleAuthProvider())}catch(e){if(e.code)say(e.code==='auth/unauthorized-domain'?'Add <b>'+esc(location.hostname)+'</b> in Firebase → Authentication → Settings → Authorized domains.':'Sign-in problem: '+esc(e.code),1)}};
+$('#aOutBtn').onclick=()=>F&&F.u.signOut(auth);
+async function onUser(u){me=u;
+ if(!u){$('#aOut').classList.remove('hide');$('#aAdmin').classList.add('hide');return}
+ let ok=false;try{const {s}=F;ok=(await s.getDoc(s.doc(db,'admins',u.uid))).exists()}catch(e){}
+ if(!ok){$('#aOut').classList.remove('hide');$('#aAdmin').classList.add('hide');
+  say('You are signed in as <b>'+esc(u.email||'')+'</b> but you are not an admin yet.<br><br>One-time step: in Firebase → Firestore Database → <b>Start collection</b> → name it <code>admins</code> → Document ID: <code style="word-break:break-all">'+esc(u.uid)+'</code> → add any field (for example <code>ok</code> = true) → Save. Then reload this page.',1);return}
+ say('');$('#aOut').classList.add('hide');$('#aAdmin').classList.remove('hide');plans($('#aPlans'),()=>aPlan,v=>aPlan=v);list()}
+const fmtExp=d=>!d?'No Pro':(d.exp===0||(d.exp===undefined))?'Lifetime':(+d.exp>Date.now()?'Pro until '+new Date(+d.exp).toLocaleDateString():'Expired '+new Date(+d.exp).toLocaleDateString());
+$('#fGo').onclick=async()=>{const q=$('#fq').value.trim();if(!q)return;const {s}=F;found=null;$('#fRes').innerHTML='<p class="mut">Searching…</p>';$('#aPick').classList.add('hide');
+ try{let uid=null,info=null;
+  if(q.includes('@')){const r=await s.getDocs(s.query(s.collection(db,'users'),s.where('email','==',q.toLowerCase()),s.limit(3)));if(!r.empty){const d=r.docs[0];uid=d.id;info=d.data()}}
+  else{uid=q;const d=await s.getDoc(s.doc(db,'users',uid));info=d.exists()?d.data():null}
+  if(!uid||(!info&&q.includes('@'))){$('#fRes').innerHTML='<div class="msg bad">No account found. Check the spelling, or ask them to open LB Music → 👤 and log in once.</div>';return}
+  const p=await s.getDoc(s.doc(db,'pro',uid));found={uid,info:info||{},pro:p.exists()?p.data():null};
+  $('#fRes').innerHTML='<div class="card"><b>'+esc(found.info.name||'(no name)')+'</b><div class="mut">'+esc(found.info.email||'')+'</div><div class="mut" style="word-break:break-all;margin:4px 0">ID: '+esc(uid)+'</div><span class="tag">'+esc(fmtExp(found.pro))+'</span>'+(info?'':'<div class="mut" style="margin-top:6px">This ID has not synced yet — Pro will still work once they log in.</div>')+'</div>';
+  $('#aPick').classList.remove('hide')}
+ catch(e){$('#fRes').innerHTML='<div class="msg bad">Search failed: '+esc(e.code||e.message)+'</div>'}};
+$('#aGo').onclick=async()=>{if(!found)return;const {s}=F,pl=PLANS.find(p=>p.id===aPlan);let exp=0;
+ if(pl.days){const base=($('#aAdd').checked&&found.pro&&+found.pro.exp>Date.now())?+found.pro.exp:Date.now();exp=base+pl.days*864e5;
+  if($('#aAdd').checked&&found.pro&&found.pro.exp===0)exp=0}
+ try{await s.setDoc(s.doc(db,'pro',found.uid),{plan:pl.n,exp,by:me.email||me.uid,at:Date.now()});
+  say('✅ Pro activated for <b>'+esc(found.info.email||found.uid)+'</b> ('+esc(pl.n)+').',0);found.pro={plan:pl.n,exp};
+  $('#fRes').querySelector('.tag').textContent=fmtExp(found.pro);list();
+  if($('#aWa').value.trim())window.open(waLink($('#aWa').value,'Thank you! 🎉 Your LB Music Pro ('+pl.n+') is now active.\n\nOpen LB Music → tap 👤 → Sync now. If you do not see it, close the app and open it again.'),'_blank')}
+ catch(e){say('Could not save: '+esc(e.code||e.message)+'. Check that the Firestore rules were published.',1)}};
+$('#aRm').onclick=async()=>{if(!found||!confirm('Remove Pro from this account?'))return;try{await F.s.deleteDoc(F.s.doc(db,'pro',found.uid));found.pro=null;$('#fRes').querySelector('.tag').textContent='No Pro';say('Pro removed.');list()}catch(e){say('Could not remove: '+esc(e.code||e.message),1)}};
+async function list(){const b=$('#pList');b.innerHTML='<p class="mut">Loading…</p>';
+ try{const {s}=F,r=await s.getDocs(s.collection(db,'pro'));if(r.empty){b.innerHTML='<p class="mut">No Pro customers yet.</p>';return}
+  const rows=[];for(const d of r.docs){let em='';try{const u=await s.getDoc(s.doc(db,'users',d.id));if(u.exists())em=u.data().email||''}catch(e){}rows.push({id:d.id,em,d:d.data()})}
+  b.innerHTML=rows.map(x=>'<div class="row"><div><b>'+esc(x.em||x.id)+'</b><span class="mut">'+esc(x.d.plan||'')+' · '+esc(fmtExp(x.d))+'</span></div><button class="btn" data-id="'+esc(x.id)+'">Open</button></div>').join('');
+  b.querySelectorAll('[data-id]').forEach(x=>x.onclick=()=>{$('#fq').value=x.dataset.id;$('#fGo').click();window.scrollTo(0,0)})}
+ catch(e){b.innerHTML='<p class="mut">Could not load the list ('+esc(e.code||e.message)+').</p>'}}
+$('#pRef').onclick=list;
+load().catch(()=>{});
+</script>
+</body>
+</html>
