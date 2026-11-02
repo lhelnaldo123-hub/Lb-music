@@ -10,12 +10,12 @@ if(window.__lbAcc)return;window.__lbAcc=1;
 
 /* ---------- your Firebase web-app config (public by design) ---------- */
 const FIREBASE_CONFIG={
-  apiKey:"AIzaSyCE_NSdi4cdzONze5d_6hxq2Xiu_q_7E_Y",
-  authDomain:"music-a1628.firebaseapp.com",
-  projectId:"music-a1628",
-  storageBucket:"music-a1628.firebasestorage.app",
-  messagingSenderId:"600445931748",
-  appId:"1:600445931748:web:14a53a514316f76cbd1cf1"
+  apiKey:"AIzaSyDVtnVNCuo1S0dVRvtZGiVHmkb2NDzjcEU",
+  authDomain:"lb-music-6f426.firebaseapp.com",
+  projectId:"lb-music-6f426",
+  storageBucket:"lb-music-6f426.firebasestorage.app",
+  messagingSenderId:"470646274859",
+  appId:"1:470646274859:web:14a53a514316f76cbd1cf1"
 };
 const SDK='10.12.2',CDN='https://www.gstatic.com/firebasejs/'+SDK+'/';
 
