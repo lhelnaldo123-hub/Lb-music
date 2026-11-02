@@ -91,7 +91,7 @@ $('#cCopy').onclick=()=>{const c=$('#cCode').textContent;try{navigator.clipboard
 $('#cSend').onclick=()=>{const pl=PLANS.find(p=>p.id===cPlan);window.open(waLink($('#cWa').value,'Thank you! 🎉 Your LB Music Pro ('+pl.n+') code is:\n\n'+$('#cCode').textContent+'\n\nOpen LB Music → Go Pro → type the code → Activate.'),'_blank')};
 
 /* ---------------- TAB 1: Firebase admin ---------------- */
-const CFG={apiKey:"AIzaSyCE_NSdi4cdzONze5d_6hxq2Xiu_q_7E_Y",authDomain:"music-a1628.firebaseapp.com",projectId:"music-a1628",storageBucket:"music-a1628.firebasestorage.app",messagingSenderId:"600445931748",appId:"1:600445931748:web:14a53a514316f76cbd1cf1"};
+const CFG={apiKey:"AIzaSyDVtnVNCuo1S0dVRvtZGiVHmkb2NDzjcEU",authDomain:"lb-music-6f426.firebaseapp.com",projectId:"lb-music-6f426",storageBucket:"lb-music-6f426.firebasestorage.app",messagingSenderId:"470646274859",appId:"1:470646274859:web:14a53a514316f76cbd1cf1"};
 const V='https://www.gstatic.com/firebasejs/10.12.2/';
 let F=null,auth,db,me=null,found=null,aPlan='LB30';
 const say=(t,bad)=>{$('#aMsg').innerHTML=t?'<div class="msg'+(bad?' bad':'')+'">'+t+'</div>':''};
@@ -109,6 +109,36 @@ async function onUser(u){me=u;
   say('You are signed in as <b>'+esc(u.email||'')+'</b> but you are not an admin yet.<br><br>One-time step: in Firebase → Firestore Database → <b>Start collection</b> → name it <code>admins</code> → Document ID: <code style="word-break:break-all">'+esc(u.uid)+'</code> → add any field (for example <code>ok</code> = true) → Save. Then reload this page.',1);return}
  say('');$('#aOut').classList.add('hide');$('#aAdmin').classList.remove('hide');plans($('#aPlans'),()=>aPlan,v=>aPlan=v);list()}
 const fmtExp=d=>!d?'No Pro':(d.exp===0||(d.exp===undefined))?'Lifetime':(+d.exp>Date.now()?'Pro until '+new Date(+d.exp).toLocaleDateString():'Expired '+new Date(+d.exp).toLocaleDateString());
+$('#fGo').onclick=async()=>{const q=$('#fq').value.trim();if(!q)return;const {s}=F;found=null;$('#fRes').innerHTML='<p class="mut">Searching…</p>';$('#aPick').classList.add('hide');
+ try{let uid=null,info=null;
+  if(q.includes('@')){const r=await s.getDocs(s.query(s.collection(db,'users'),s.where('email','==',q.toLowerCase()),s.limit(3)));if(!r.empty){const d=r.docs[0];uid=d.id;info=d.data()}}
+  else{uid=q;const d=await s.getDoc(s.doc(db,'users',uid));info=d.exists()?d.data():null}
+  if(!uid||(!info&&q.includes('@'))){$('#fRes').innerHTML='<div class="msg bad">No account found. Check the spelling, or ask them to open LB Music → 👤 and log in once.</div>';return}
+  const p=await s.getDoc(s.doc(db,'pro',uid));found={uid,info:info||{},pro:p.exists()?p.data():null};
+  $('#fRes').innerHTML='<div class="card"><b>'+esc(found.info.name||'(no name)')+'</b><div class="mut">'+esc(found.info.email||'')+'</div><div class="mut" style="word-break:break-all;margin:4px 0">ID: '+esc(uid)+'</div><span class="tag">'+esc(fmtExp(found.pro))+'</span>'+(info?'':'<div class="mut" style="margin-top:6px">This ID has not synced yet — Pro will still work once they log in.</div>')+'</div>';
+  $('#aPick').classList.remove('hide')}
+ catch(e){$('#fRes').innerHTML='<div class="msg bad">Search failed: '+esc(e.code||e.message)+'</div>'}};
+$('#aGo').onclick=async()=>{if(!found)return;const {s}=F,pl=PLANS.find(p=>p.id===aPlan);let exp=0;
+ if(pl.days){const base=($('#aAdd').checked&&found.pro&&+found.pro.exp>Date.now())?+found.pro.exp:Date.now();exp=base+pl.days*864e5;
+  if($('#aAdd').checked&&found.pro&&found.pro.exp===0)exp=0}
+ try{await s.setDoc(s.doc(db,'pro',found.uid),{plan:pl.n,exp,by:me.email||me.uid,at:Date.now()});
+  say('✅ Pro activated for <b>'+esc(found.info.email||found.uid)+'</b> ('+esc(pl.n)+').',0);found.pro={plan:pl.n,exp};
+  $('#fRes').querySelector('.tag').textContent=fmtExp(found.pro);list();
+  if($('#aWa').value.trim())window.open(waLink($('#aWa').value,'Thank you! 🎉 Your LB Music Pro ('+pl.n+') is now active.\n\nOpen LB Music → tap 👤 → Sync now. If you do not see it, close the app and open it again.'),'_blank')}
+ catch(e){say('Could not save: '+esc(e.code||e.message)+'. Check that the Firestore rules were published.',1)}};
+$('#aRm').onclick=async()=>{if(!found||!confirm('Remove Pro from this account?'))return;try{await F.s.deleteDoc(F.s.doc(db,'pro',found.uid));found.pro=null;$('#fRes').querySelector('.tag').textContent='No Pro';say('Pro removed.');list()}catch(e){say('Could not remove: '+esc(e.code||e.message),1)}};
+async function list(){const b=$('#pList');b.innerHTML='<p class="mut">Loading…</p>';
+ try{const {s}=F,r=await s.getDocs(s.collection(db,'pro'));if(r.empty){b.innerHTML='<p class="mut">No Pro customers yet.</p>';return}
+  const rows=[];for(const d of r.docs){let em='';try{const u=await s.getDoc(s.doc(db,'users',d.id));if(u.exists())em=u.data().email||''}catch(e){}rows.push({id:d.id,em,d:d.data()})}
+  b.innerHTML=rows.map(x=>'<div class="row"><div><b>'+esc(x.em||x.id)+'</b><span class="mut">'+esc(x.d.plan||'')+' · '+esc(fmtExp(x.d))+'</span></div><button class="btn" data-id="'+esc(x.id)+'">Open</button></div>').join('');
+  b.querySelectorAll('[data-id]').forEach(x=>x.onclick=()=>{$('#fq').value=x.dataset.id;$('#fGo').click();window.scrollTo(0,0)})}
+ catch(e){b.innerHTML='<p class="mut">Could not load the list ('+esc(e.code||e.message)+').</p>'}}
+$('#pRef').onclick=list;
+load().catch(()=>{});
+</script>
+</body>
+</html>
+undefined))?'Lifetime':(+d.exp>Date.now()?'Pro until '+new Date(+d.exp).toLocaleDateString():'Expired '+new Date(+d.exp).toLocaleDateString());
 $('#fGo').onclick=async()=>{const q=$('#fq').value.trim();if(!q)return;const {s}=F;found=null;$('#fRes').innerHTML='<p class="mut">Searching…</p>';$('#aPick').classList.add('hide');
  try{let uid=null,info=null;
   if(q.includes('@')){const r=await s.getDocs(s.query(s.collection(db,'users'),s.where('email','==',q.toLowerCase()),s.limit(3)));if(!r.empty){const d=r.docs[0];uid=d.id;info=d.data()}}
